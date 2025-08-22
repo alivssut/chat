@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { getUser } from "../../auth/authSlice";
 import { getChatRoomMessageList, getChatRoomDetail } from "../chatSlice";
 import ChatRoomModal from "../components/Modal/ChatRoomModal";
+import groupIMG from "../../../assets/images/group_default.png"
 
 export default function ChatRoomPage({ room_id, onBack }) {
   const dispatch = useDispatch();
@@ -29,7 +30,8 @@ export default function ChatRoomPage({ room_id, onBack }) {
     avatar: "https://via.placeholder.com/60",
     members: ["Ali", "Sara", "John"],
     description: "این یک چت روم تستی است",
-    createdAt: "2025-08-17"
+    createdAt: "2025-08-17",
+
   };
 
   useEffect(() => {
@@ -48,7 +50,7 @@ export default function ChatRoomPage({ room_id, onBack }) {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [showDropdown]);
-  
+
 
   // Fetch user if not loaded
   useEffect(() => {
@@ -149,7 +151,7 @@ export default function ChatRoomPage({ room_id, onBack }) {
     <div className={styles.chatContainer}>
       <header className={styles.chatHeader}>
         <button onClick={onBack} className={styles.backButton}>⬅</button>
-        <img src={chatRoomDetail?.avatar} alt="avatar" className={styles.avatar} />
+        <img src={ chatRoomDetail?.avatar ? chatRoomDetail?.avatar : groupIMG} alt="avatar" className={styles.avatar} />
         <h4 onClick={() => chatRoomDetail?.room_type === "group" && setShowModal(true)}>
           {chatRoomDetail?.name}
         </h4>

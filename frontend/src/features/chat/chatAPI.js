@@ -89,3 +89,18 @@ export const fetchChatRoomMembers = async (room_id) => {
   const response = await axiosInstance.get(`/chat/rooms/${room_id}/members/`);
   return response.data;
 };
+
+export const fetchUserContacts = async () => {
+  const response = await axiosInstance.get(`/user/contacts/`);
+  return response.data;
+};
+
+export const createChatRoom = async (payload) => {
+  const response = await axiosInstance.post("/chat/rooms/create-group/", payload);
+  return response.data;
+};
+
+export const createChannelRoom = async (payload) => {
+  const response = await axiosInstance.post("/chat/rooms/create-channel/", payload);
+  return response.data;
+};

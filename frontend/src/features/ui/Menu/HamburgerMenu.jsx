@@ -1,11 +1,15 @@
-import React, {useEffect} from "react";
+import React, { useEffect, useState } from "react";
 import styles from "./HamburgerMenu.module.css";
 import { useDispatch, useSelector } from "react-redux";
 import { getUserDetails } from "../../auth/authSlice";
+import NewGroupModal from "../../chat/components/Modal/NewGroupModal";
+import NewChannelModal from "../../chat/components/Modal/NewChannelModal";
 
-export default function HamburgerMenu({ isOpen, onClose, user }) {
+export default function HamburgerMenu({ isOpen, onClose }) {
   const dispatch = useDispatch();
   const { loading, userDetails } = useSelector((state) => state.auth);
+  const [openGroupModal, setOpenGroupModal] = useState(false);
+  const [openChannelModal, setOpenChannelModal] = useState(false);
 
   useEffect(() => {
     if(!userDetails)
@@ -26,7 +30,7 @@ export default function HamburgerMenu({ isOpen, onClose, user }) {
 
         <div className={styles.drawerHeader}>
           <img
-            src={userDetails?.avatar || "https://via.placeholder.com/60"}
+            src={userDetails?.avatar || ""}
             alt={userDetails?.username}
             className={styles.profileAvatar}
           />
@@ -37,7 +41,8 @@ export default function HamburgerMenu({ isOpen, onClose, user }) {
         </div>
 
         <nav className={styles.drawerMenu}>
-          <a href="#">New Group</a>
+          <a onClick={() => setOpenGroupModal(true)}>➕ New Group</a>
+          <a onClick={() => setOpenChannelModal(true)}>➕ New Channel</a>
           <a href="#">Contacts</a>
           <a href="#">Calls</a>
           <a href="#">Settings</a>
@@ -45,6 +50,20 @@ export default function HamburgerMenu({ isOpen, onClose, user }) {
           <a href="#">Log Out</a>
         </nav>
       </div>
+
+      {openGroupModal && (
+        <NewGroupModal
+          isOpen={openGroupModal}
+          onClose={() => setOpenGroupModal(false)}
+        />
+      )}
+
+      {openChannelModal && (
+        <NewChannelModal
+          isOpen={openChannelModal}
+          onClose={() => setOpenChannelModal(false)}
+        />
+      )}
     </div>
   );
 }

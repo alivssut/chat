@@ -57,3 +57,45 @@ class ChatRoomMemberSerializer(serializers.ModelSerializer):
     class Meta:
         model = RoomMember
         fields = ["id", "username", "profile", "role"]
+        
+class RoomCreateSerializer(serializers.ModelSerializer):
+    members = serializers.ListField(
+        child=serializers.UUIDField(),
+        write_only=True
+    )
+    description = serializers.CharField(
+        required=False, allow_blank=True, allow_null=True
+    )
+    avatar = serializers.ImageField(
+        required=False, allow_null=True
+    )
+
+    class Meta:
+        model = Room
+        fields = ["id", "name", "description", "avatar", "members"]
+
+    def create(self, validated_data):
+        members = validated_data.pop("members", [])
+        request_user = self.context["request"].user
+        room_type = self.context["room_type"]
+
+        room = Room.objects.create(
+            room_type=room_type,
+            **validated_data
+        )
+
+        RoomMember.objects.create(
+            room=room,
+            user=request_user,
+            role=RoomMember.RoomMemberRole.ADMIN
+        )
+
+        users = User.objects.filter(id__in=members).exclude(id=request_user.id)
+        for user in users:
+            RoomMember.objects.create(
+                room=room,
+                user=user,
+                role=RoomMember.RoomMemberRole.MEMBER
+            )
+
+        return room

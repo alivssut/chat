@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { fetchChatRoomList, fetchChatRoomMessageList, fetchChatRoomDetail, fetchChatRoomMembers } from './chatAPI';
+import { fetchChatRoomList, fetchChatRoomMessageList, fetchChatRoomDetail, fetchChatRoomMembers, fetchUserContacts, createChatRoom, createChannelRoom } from './chatAPI';
 
 export const getChatRoomList = createAsyncThunk("chat/rooms", async () => {
   return await fetchChatRoomList();
@@ -17,6 +17,18 @@ export const getChatRoomMembers = createAsyncThunk("chat/getChatRoomMemberlList"
   return await fetchChatRoomMembers(room_id);
 });
 
+export const getUserContacts = createAsyncThunk("chat/getUserContacts", async () => {
+  return await fetchUserContacts();
+});
+
+export const createRoom = createAsyncThunk("chat/createRoom", async (payload) => {
+  return await createChatRoom(payload);
+});
+
+export const createChannel = createAsyncThunk("chat/createChannelRoom", async (payload) => {
+  return await createChannelRoom(payload);
+});
+
 const chatSlice = createSlice({
   name: "chat",
   initialState: {
@@ -27,17 +39,24 @@ const chatSlice = createSlice({
     chatRoomMessageList: [],
     chatRoomMembers: [],
     chatRoomDetail: null,
+    userContacts: false,
     loading: {
         getChatRoomList: false,
         getChatRoomMessageList: false,
         getChatRoomDetail: false,
         getChatRoomMembers: false,
+        getUserContacts: false,
+        createRoom: false,
+        createChannelRoom: false,
     },
     error: {
         getChatRoomList: null,
         getChatRoomMessageList: null,
         getChatRoomDetail: null,
         getChatRoomMembers: null,
+        getUserContacts: null,
+        createRoom: null,
+        createChannelRoom: null,
     },
   },
   reducers: {
@@ -105,15 +124,52 @@ const chatSlice = createSlice({
     });
 
     builder.addCase(getChatRoomMembers.pending, (state) => {
-      state.loading.getChatRoomMember = true;
+      state.loading.getChatRoomMembers = true;
     });
     builder.addCase(getChatRoomMembers.fulfilled, (state, action) => {
       state.chatRoomMembers = action.payload;
-      state.loading.getChatRoomMember = false;
+      state.loading.getChatRoomMembers = false;
     });
     builder.addCase(getChatRoomMembers.rejected, (state, action) => {
-      state.loading.getChatRoomMember = false;
-      state.error.getChatRoomMember = action.error.message;
+      state.loading.getChatRoomMembers = false;
+      state.error.getChatRoomMembers = action.error.message;
+    });
+
+    builder.addCase(getUserContacts.pending, (state) => {
+      state.loading.getUserContacts = true;
+    });
+    builder.addCase(getUserContacts.fulfilled, (state, action) => {
+      state.userContacts = action.payload;
+      state.loading.getUserContacts = false;
+    });
+    builder.addCase(getUserContacts.rejected, (state, action) => {
+      state.loading.getUserContacts = false;
+      state.error.getUserContacts = action.error.message;
+    });
+
+    builder.addCase(createRoom.pending, (state) => {
+      state.loading.createRoom = true;
+    });
+    builder.addCase(createRoom.fulfilled, (state, action) => {
+      state.loading.createRoom = false;
+      // state.chatRoomList.unshift(action.payload);
+    });
+    builder.addCase(createRoom.rejected, (state, action) => {
+      state.loading.createRoom = false;
+      state.error.createRoom = action.error.message;
+    });
+
+
+    builder.addCase(createChannel.pending, (state) => {
+      state.loading.createChannelRoom = true;
+    });
+    builder.addCase(createChannel.fulfilled, (state, action) => {
+      state.loading.createChannelRoom = false;
+      // state.chatRoomList.unshift(action.payload);
+    });
+    builder.addCase(createChannel.rejected, (state, action) => {
+      state.loading.createChannelRoom = false;
+      state.error.createChannelRoom = action.error.message;
     });
 
   },

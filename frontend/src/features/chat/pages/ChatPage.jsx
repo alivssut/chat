@@ -5,6 +5,7 @@ import { getChatRoomList, updateChatList } from "../chatSlice";
 import { useDispatch, useSelector } from "react-redux";
 import HamburgerMenu from "../../ui/Menu/HamburgerMenu";
 import { useParams, useNavigate } from "react-router-dom";
+import groupIMG from "../../../assets/images/group_default.png"
 
 export default function ChatPage() {
   const [selectedChat, setSelectedChat] = useState(null);
@@ -102,7 +103,7 @@ export default function ChatPage() {
               >
                 <div className={styles.chatLeft}>
                   <div className={styles.avatarWrapper}>
-                    <img src={chat.avatar} alt={chat.name} className={styles.avatar} />
+                    <img src={chat.avatar ? chat.avatar : groupIMG} alt={chat.name || "User"} className={styles.avatar} />
                     {true && <span className={styles.onlineDot}></span>}
                   </div>
                   <div className={styles.chatInfo}>
