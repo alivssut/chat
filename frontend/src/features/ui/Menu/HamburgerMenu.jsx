@@ -4,12 +4,14 @@ import { useDispatch, useSelector } from "react-redux";
 import { getUserDetails } from "../../auth/authSlice";
 import NewGroupModal from "../../chat/components/Modal/NewGroupModal";
 import NewChannelModal from "../../chat/components/Modal/NewChannelModal";
+import MyProfileModal from "../../profile/MyProfileModal";
 
 export default function HamburgerMenu({ isOpen, onClose }) {
   const dispatch = useDispatch();
   const { loading, userDetails } = useSelector((state) => state.auth);
   const [openGroupModal, setOpenGroupModal] = useState(false);
   const [openChannelModal, setOpenChannelModal] = useState(false);
+  const [openMyProfileModal, setOpenMyProfileModal] = useState(false);
 
   useEffect(() => {
     if(!userDetails)
@@ -43,6 +45,7 @@ export default function HamburgerMenu({ isOpen, onClose }) {
         <nav className={styles.drawerMenu}>
           <a onClick={() => setOpenGroupModal(true)}>➕ New Group</a>
           <a onClick={() => setOpenChannelModal(true)}>➕ New Channel</a>
+          <a onClick={() => setOpenMyProfileModal(true)}>My Profile</a>
           <a href="#">Contacts</a>
           <a href="#">Calls</a>
           <a href="#">Settings</a>
@@ -62,6 +65,13 @@ export default function HamburgerMenu({ isOpen, onClose }) {
         <NewChannelModal
           isOpen={openChannelModal}
           onClose={() => setOpenChannelModal(false)}
+        />
+      )}
+
+      {openMyProfileModal && (
+        <MyProfileModal
+          isOpen={openMyProfileModal}
+          onClose={() => setOpenMyProfileModal(false)}
         />
       )}
     </div>
