@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import styles from "./ChatPage.module.css";
 import ChatRoomPage from "./ChatRoomPage";
 import { getChatRoomList, updateChatList } from "../chatSlice";
 import { useDispatch, useSelector } from "react-redux";
 import HamburgerMenu from "../../ui/Menu/HamburgerMenu";
 import { useParams, useNavigate } from "react-router-dom";
-import groupIMG from "../../../assets/images/group_default.png"
+import groupIMG from "../../../assets/images/group_default.png";
+import useWebSocket, { ReadyState } from "react-use-websocket";
 
 export default function ChatPage() {
   const [selectedChat, setSelectedChat] = useState(null);
@@ -15,42 +16,41 @@ export default function ChatPage() {
   const { room_id } = useParams();
   const navigate = useNavigate();
 
-  const wsRef = useRef(null);
-
   const user = { id: 1, name: "John Doe", username: "johndoe", avatar: "" };
 
   useEffect(() => {
-    if (room_id){
+    if (room_id) {
       setSelectedChat(room_id);
     }
   }, [room_id]);
 
-  // Load initial chat list from API/Redux
+  // Load initial chat list from API
   useEffect(() => {
     dispatch(getChatRoomList());
   }, [dispatch]);
 
-  // Connect to chat list WebSocket
+  // ✅ WebSocket for chat list
+  const { lastMessage, readyState } = useWebSocket(`ws://localhost/ws/rooms/`, {
+    shouldReconnect: () => true,
+    reconnectAttempts: 10,
+    reconnectInterval: 3000,
+    onOpen: () => console.log("✅ WS connected for chat list"),
+    onClose: () => console.log("❌ WS disconnected from chat list"),
+    onError: (err) => console.error("Chat list WS error:", err),
+  });
+
+  // handle incoming messages
   useEffect(() => {
-    const token = localStorage.getItem("access");
-    if (!token) return;
-
-    const ws = new WebSocket(`ws://localhost/ws/rooms/`);
-    wsRef.current = ws;
-
-    ws.onopen = () => console.log("✅ WebSocket connected for chat list");
-    ws.onclose = () => console.log("❌ WebSocket disconnected from chat list");
-    ws.onerror = (err) => console.error("Chat list WS error:", err);
-
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      console.log("📩 Chat list update:", data);
-
-      dispatch(updateChatList(data));
-    };
-
-    return () => ws.close();
-  }, [dispatch]);
+    if (lastMessage !== null) {
+      try {
+        const data = JSON.parse(lastMessage.data);
+        console.log("📩 Chat list update:", data);
+        dispatch(updateChatList(data));
+      } catch (e) {
+        console.error("Parse error:", e);
+      }
+    }
+  }, [lastMessage, dispatch]);
 
   const sortedChats = [...chatRoomList].sort((a, b) => {
     const aTime = a.last_message?.created_at
@@ -65,7 +65,11 @@ export default function ChatPage() {
   return (
     <div className={styles.container}>
       {/* Sidebar */}
-      <aside className={`${styles.sidebar} ${selectedChat && styles.hideOnMobile}`}>
+      <aside
+        className={`${styles.sidebar} ${
+          selectedChat && styles.hideOnMobile
+        }`}
+      >
         <div className={styles.sidebarHeader}>
           <button
             className={styles.hamburgerBtn}
@@ -80,20 +84,25 @@ export default function ChatPage() {
 
         {/* Chat List */}
         <div className={styles.chatList}>
-          {sortedChats.map(chat => {
+          {sortedChats.map((chat) => {
             let chatIcon = "💬";
             if (chat.room_type === "private") chatIcon = "👤";
             if (chat.room_type === "group") chatIcon = "👥";
             if (chat.room_type === "channel") chatIcon = "📢";
 
             const lastMsgTime = chat.last_message?.created_at
-              ? new Date(chat.last_message.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+              ? new Date(chat.last_message.created_at).toLocaleTimeString(
+                  [],
+                  { hour: "2-digit", minute: "2-digit" }
+                )
               : "";
 
             return (
               <div
                 key={chat.id}
-                className={`${styles.chatItem} ${selectedChat === chat.id ? styles.active : ""}`}
+                className={`${styles.chatItem} ${
+                  selectedChat === chat.id ? styles.active : ""
+                }`}
                 onClick={() => {
                   if (selectedChat !== chat.id) {
                     setSelectedChat(chat.id);
@@ -103,7 +112,11 @@ export default function ChatPage() {
               >
                 <div className={styles.chatLeft}>
                   <div className={styles.avatarWrapper}>
-                    <img src={chat.avatar ? chat.avatar : groupIMG} alt={chat.name || "User"} className={styles.avatar} />
+                    <img
+                      src={chat.avatar ? chat.avatar : groupIMG}
+                      alt={chat.name || "User"}
+                      className={styles.avatar}
+                    />
                     {true && <span className={styles.onlineDot}></span>}
                   </div>
                   <div className={styles.chatInfo}>
@@ -114,25 +127,35 @@ export default function ChatPage() {
                   </div>
                 </div>
                 <div className={styles.chatRight}>
-                  {lastMsgTime && <span className={styles.lastMsgTime}>{lastMsgTime}</span>}
+                  {lastMsgTime && (
+                    <span className={styles.lastMsgTime}>{lastMsgTime}</span>
+                  )}
                   {chat.unread_count > 0 && (
-                    <span className={styles.unreadBadge}>{chat.unread_count}</span>
+                    <span className={styles.unreadBadge}>
+                      {chat.unread_count}
+                    </span>
                   )}
                 </div>
               </div>
             );
           })}
         </div>
-
       </aside>
 
       {/* Chat Room */}
-      <main className={`${styles.chatRoomWrapper} ${!selectedChat && styles.hideOnMobile}`}>
+      <main
+        className={`${styles.chatRoomWrapper} ${
+          !selectedChat && styles.hideOnMobile
+        }`}
+      >
         {selectedChat ? (
-          <ChatRoomPage room_id={selectedChat} onBack={() => {
-            setSelectedChat(null);
-            navigate("/"); 
-          }} />
+          <ChatRoomPage
+            room_id={selectedChat}
+            onBack={() => {
+              setSelectedChat(null);
+              navigate("/");
+            }}
+          />
         ) : (
           <div className={styles.emptyChat}>
             <p>Select a chat to start messaging</p>

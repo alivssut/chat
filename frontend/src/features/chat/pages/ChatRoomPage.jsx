@@ -4,7 +4,8 @@ import { useDispatch, useSelector } from "react-redux";
 import { getUser } from "../../auth/authSlice";
 import { getChatRoomMessageList, getChatRoomDetail } from "../chatSlice";
 import ChatRoomModal from "../components/Modal/ChatRoomModal";
-import groupIMG from "../../../assets/images/group_default.png"
+import groupIMG from "../../../assets/images/group_default.png";
+import useWebSocket, { ReadyState } from "react-use-websocket";
 
 export default function ChatRoomPage({ room_id, onBack }) {
   const dispatch = useDispatch();
@@ -13,27 +14,17 @@ export default function ChatRoomPage({ room_id, onBack }) {
     (state) => state.chat
   );
 
-  const socketRef = useRef(null);
   const messagesEndRef = useRef(null);
-
   const [showModal, setShowModal] = useState(false);
-
-  const [showDropdown, setShowDropdown] = useState(false)
+  const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
 
   const [messages, setMessages] = useState([]);
   const [messageInput, setMessageInput] = useState("");
 
-  const chatRoom = {
-    id: room_id,
-    name: "Chat Room Example",
-    avatar: "https://via.placeholder.com/60",
-    members: ["Ali", "Sara", "John"],
-    description: "این یک چت روم تستی است",
-    createdAt: "2025-08-17",
-
-  };
-
+  // ----------------------
+  // Dropdown close handler
+  // ----------------------
   useEffect(() => {
     function handleClickOutside(e) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -45,33 +36,31 @@ export default function ChatRoomPage({ room_id, onBack }) {
     } else {
       document.removeEventListener("mousedown", handleClickOutside);
     }
-  
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showDropdown]);
 
-
+  // ----------------------
   // Fetch user if not loaded
+  // ----------------------
   useEffect(() => {
     if (!user && !userLoading) {
       dispatch(getUser());
     }
   }, [dispatch, user, userLoading]);
 
-  // Fetch previous messages
+  // ----------------------
+  // Fetch room detail & messages
+  // ----------------------
   useEffect(() => {
     if (room_id) {
-      // dispatch(connectWebSocket(room_id));
       dispatch(getChatRoomDetail(room_id));
       dispatch(getChatRoomMessageList(room_id));
     }
-    // return () => {
-    //   dispatch(disconnectWebSocket());
-    // };
   }, [dispatch, room_id]);
 
-  // Sync messages from Redux to local state
+  // ----------------------
+  // Sync Redux → local messages
+  // ----------------------
   useEffect(() => {
     if (chatRoomMessageList) {
       setMessages(
@@ -89,59 +78,56 @@ export default function ChatRoomPage({ room_id, onBack }) {
     }
   }, [chatRoomMessageList]);
 
-  // WebSocket connection
+  // ----------------------
+  // WebSocket with react-use-websocket
+  // ----------------------
+  const token = localStorage.getItem("access");
+  const { sendJsonMessage, lastMessage, readyState } = useWebSocket(
+    token && room_id ? `ws://localhost/ws/room/${room_id}/` : null,
+    {
+      shouldReconnect: () => true,
+      reconnectInterval: 3000,
+    }
+  );
+
+  // handle incoming message
   useEffect(() => {
-    const token = localStorage.getItem("access");
-    if (!token || !room_id) return;
+    if (lastMessage !== null) {
+      try {
+        const data = JSON.parse(lastMessage.data);
+        console.log("📩 New message:", data);
+        const normalized = {
+          id: data.id ?? Date.now(),
+          text: data.text ?? data.content ?? "",
+          timestamp: data.timestamp ?? data.created_at ?? new Date().toISOString(),
+          sender: {
+            id: data.sender ?? data.user ?? null,
+            username: data.username ?? null,
+            avatar: data.avatar ?? null,
+          },
+        };
+        setMessages((prev) => [...prev, normalized]);
+      } catch (err) {
+        console.error("❌ Error parsing WS message:", err);
+      }
+    }
+  }, [lastMessage]);
 
-    const ws = new WebSocket(`ws://localhost/ws/room/${room_id}/`);
-    socketRef.current = ws;
-
-    ws.onopen = () => console.log("WebSocket connected");
-    ws.onclose = () => console.log("WebSocket disconnected");
-    ws.onerror = (err) => console.error("WebSocket error:", err);
-
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      console.log(data)
-      // normalize
-      const normalized = {
-        id: data.id ?? Date.now(),
-        text: data.text ?? data.content ?? "",
-        timestamp: data.timestamp ?? data.created_at ?? new Date().toISOString(),
-        sender: {
-          id: data.sender ?? data.user ?? null,
-          username: data.username ?? null,
-          avatar: data.avatar ?? null,
-        },
-      };
-
-      setMessages((prev) => [...prev, normalized]);
-    };
-
-    return () => {
-      ws.close();
-    };
-  }, [room_id]);
-
-  // Scroll to bottom when messages update
+  // ----------------------
+  // Scroll to bottom
+  // ----------------------
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
 
+  // ----------------------
+  // Send message
+  // ----------------------
   const sendMessage = () => {
     if (!messageInput.trim()) return;
-
-    const payload = { text: messageInput.trim() };
-    socketRef.current?.send(JSON.stringify(payload));
+    sendJsonMessage({ text: messageInput.trim() });
     setMessageInput("");
   };
-
-  // const sendMessage = () => {
-  //   if (!messageInput.trim()) return;
-  //   dispatch(sendMessageWS({ text: messageInput.trim() }));
-  //   setMessageInput("");
-  // };
 
   if (userLoading.user || chatLoading.getChatRoomMessageList) {
     return <div className={styles.loading}>Loading...</div>;
@@ -151,25 +137,52 @@ export default function ChatRoomPage({ room_id, onBack }) {
     <div className={styles.chatContainer}>
       <header className={styles.chatHeader}>
         <button onClick={onBack} className={styles.backButton}>⬅</button>
-        <img src={ chatRoomDetail?.avatar ? chatRoomDetail?.avatar : groupIMG} alt="avatar" className={styles.avatar} />
-        <h4 onClick={() => chatRoomDetail?.room_type === "group" && setShowModal(true)}>
+        <img
+          src={chatRoomDetail?.avatar ? chatRoomDetail?.avatar : groupIMG}
+          alt="avatar"
+          className={styles.avatar}
+        />
+        <h4
+          onClick={() =>
+            chatRoomDetail?.room_type === "group" && setShowModal(true)
+          }
+        >
           {chatRoomDetail?.name}
         </h4>
 
         <div className={styles.dropdownWrapper} ref={dropdownRef}>
-          <button className={styles.dropdownBtn} onClick={() => setShowDropdown(prev => !prev)}>⋮</button>
+          <button
+            className={styles.dropdownBtn}
+            onClick={() => setShowDropdown((prev) => !prev)}
+          >
+            ⋮
+          </button>
 
           {showDropdown && (
             <div className={styles.dropdownMenu}>
-              {chatRoomDetail?.room_type === "group" && <button onClick={() => setShowModal(true)}>Group info</button>}
-              {chatRoomDetail?.room_type !== "channel" && <button onClick={() => alert("Mute not implemented yet!")}>Mute</button>}
-              {chatRoomDetail?.room_type !== "channel" && <button onClick={() => alert("Leave not implemented yet!")}>Leave {chatRoomDetail?.room_type}</button>}
+              {chatRoomDetail?.room_type === "group" && (
+                <button onClick={() => setShowModal(true)}>Group info</button>
+              )}
+              {chatRoomDetail?.room_type !== "channel" && (
+                <button onClick={() => alert("Mute not implemented yet!")}>
+                  Mute
+                </button>
+              )}
+              {chatRoomDetail?.room_type !== "channel" && (
+                <button
+                  onClick={() =>
+                    alert(`Leave ${chatRoomDetail?.room_type} not implemented yet!`)
+                  }
+                >
+                  Leave {chatRoomDetail?.room_type}
+                </button>
+              )}
             </div>
           )}
         </div>
       </header>
 
-
+      {/* Messages */}
       <div className={styles.messages}>
         {messages.map((msg, index) => {
           const isMine = user && msg.sender?.id === user.pk;
@@ -181,7 +194,11 @@ export default function ChatRoomPage({ room_id, onBack }) {
               }`}
             >
               {!isMine && msg.sender?.avatar && (
-                <img src={msg.sender.avatar} alt="avatar" className={styles.msgAvatar} />
+                <img
+                  src={msg.sender.avatar}
+                  alt="avatar"
+                  className={styles.msgAvatar}
+                />
               )}
               <div className={styles.messageContent}>
                 <p>{msg.text}</p>
@@ -195,7 +212,9 @@ export default function ChatRoomPage({ room_id, onBack }) {
         <div ref={messagesEndRef} />
       </div>
 
-      {(chatRoomDetail?.room_type !== "channel" || chatRoomDetail?.user_role === "admin") && (
+      {/* Input box */}
+      {(chatRoomDetail?.room_type !== "channel" ||
+        chatRoomDetail?.user_role === "admin") && (
         <footer className={styles.inputContainer}>
           <input
             type="text"
@@ -204,21 +223,16 @@ export default function ChatRoomPage({ room_id, onBack }) {
             onChange={(e) => setMessageInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && sendMessage()}
           />
-          <button
-            onClick={sendMessage}
-            disabled={!messageInput.trim()}
-          >
+          <button onClick={sendMessage} disabled={!messageInput.trim()}>
             ➤
           </button>
         </footer>
       )}
 
-
-
       <ChatRoomModal
         isOpen={showModal}
         onClose={() => setShowModal(false)}
-        chatRoom={chatRoom}
+        chatRoom={chatRoomDetail}
         room_id={room_id}
       />
     </div>
