@@ -15,8 +15,19 @@ export const register = async (email, password) => {
 };
 
 export const logout = async () => {
-    const response = await axios.post('/api/auth/logout/');
-    TokenService.clearAll();
+    const refreshToken = TokenService.getRefreshToken();
+    const accessToken = TokenService.getAccessToken();
+    const response = await axios.post(
+        '/api/auth/logout/',
+        { refresh: refreshToken },
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+          withCredentials: true,
+        }
+      );
+    TokenService.logout();
     return response.data;
 };
 
