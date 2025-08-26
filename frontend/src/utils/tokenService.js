@@ -11,6 +11,11 @@ const TokenService = {
   setRefreshToken: (token) => localStorage.setItem('refresh', token),
 
   clearRefreshToken: () => localStorage.removeItem('refresh'),
+
+  logout: () => {
+    localStorage.removeItem('access');
+    localStorage.removeItem('refresh');
+  },
 };
 
 export default TokenService;
