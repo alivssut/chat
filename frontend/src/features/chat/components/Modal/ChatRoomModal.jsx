@@ -23,7 +23,11 @@ export default function ChatRoomModal({ isOpen, onClose, chatRoom, room_id }) {
         
         {/* Header Bar */}
         <div className={styles.headerBar}>
-            <h3>Group Info</h3>
+        <h3>
+          {chatRoomDetail?.room_type === "group" && "Group Info"}
+          {chatRoomDetail?.room_type === "channel" && "Channel Info"}
+          {chatRoomDetail?.room_type === "private" && "Private Info"}
+        </h3>
             <button className={styles.closeBtn} onClick={onClose}><FaTimes /></button>
         </div>
 

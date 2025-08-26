@@ -160,8 +160,14 @@ export default function ChatRoomPage({ room_id, onBack }) {
 
           {showDropdown && (
             <div className={styles.dropdownMenu}>
-              {chatRoomDetail?.room_type === "group" && (
-                <button onClick={() => setShowModal(true)}>Group info</button>
+              {chatRoomDetail && (
+                <button onClick={() => setShowModal(true)}>
+                  {({
+                    group: "View Group Info",
+                    channel: "View Channel Info",
+                    private: "View Private Info"
+                  }[chatRoomDetail.room_type])}
+                </button>
               )}
               {chatRoomDetail?.room_type !== "channel" && (
                 <button onClick={() => alert("Mute not implemented yet!")}>

@@ -37,7 +37,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 14px 18px;
+  padding-left: 14px;
+  padding-right: 8px;
   background: rgba(255,255,255,0.05);
   font-size: 17px;
   font-weight: 600;
@@ -74,6 +75,7 @@
   margin: 0;
   font-size: 23px;
   font-weight: 700;
+  color: #fff;
 }
 .groupDetails p {
   margin: 8px 0 0;
