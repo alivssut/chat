@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { fetchChatRoomList, fetchChatRoomMessageList, fetchChatRoomDetail, fetchChatRoomMembers, fetchUserContacts, createChatRoom, createChannelRoom } from './chatAPI';
+import { fetchChatRoomList, fetchChatRoomMessageList, fetchChatRoomDetail, fetchChatRoomMembers, fetchUserContacts, createChatRoom, createChannelRoom, fetchUserRoomRole, updateRoomAvatar } from './chatAPI';
 
 export const getChatRoomList = createAsyncThunk("chat/rooms", async () => {
   return await fetchChatRoomList();
@@ -29,6 +29,20 @@ export const createChannel = createAsyncThunk("chat/createChannelRoom", async (p
   return await createChannelRoom(payload);
 });
 
+export const getUserRoomRole = createAsyncThunk(
+  "chat/getUserRoomRole",
+  async (room_id) => {
+    return await fetchUserRoomRole(room_id);
+  }
+);
+
+export const changeRoomAvatar = createAsyncThunk(
+  "chat/changeRoomAvatar",
+  async ({ roomId, file }) => {
+    return await updateRoomAvatar(roomId, file);
+  }
+);
+
 const chatSlice = createSlice({
   name: "chat",
   initialState: {
@@ -39,6 +53,7 @@ const chatSlice = createSlice({
     chatRoomMessageList: [],
     chatRoomMembers: [],
     chatRoomDetail: null,
+    userRoomRole: null,
     userContacts: false,
     loading: {
         getChatRoomList: false,
@@ -48,6 +63,7 @@ const chatSlice = createSlice({
         getUserContacts: false,
         createRoom: false,
         createChannelRoom: false,
+        getUserRoomRole: false,
     },
     error: {
         getChatRoomList: null,
@@ -57,6 +73,7 @@ const chatSlice = createSlice({
         getUserContacts: null,
         createRoom: null,
         createChannelRoom: null,
+        getUserRoomRole: null,
     },
   },
   reducers: {
@@ -84,7 +101,27 @@ const chatSlice = createSlice({
       } else {
         state.chatRoomList.unshift(updatedRoom);
       }
-    }
+    },
+    patchChatRoomDetail(state, action) {
+      // payload: { room_id, patch: { avatar?, name?, updated_at?, ... } }
+      const { room_id, patch } = action.payload || {};
+      if (!room_id || !patch) return;
+      console.log("room_id: ", room_id)
+      if (
+        state.chatRoomDetail &&
+        String(state.chatRoomDetail.id) === String(room_id)
+      ) {
+        state.chatRoomDetail = { ...state.chatRoomDetail, ...patch };
+        console.log(state.chatRoomDetail)
+      }
+
+      // const idx = state.chatRoomList.findIndex(
+      //   (r) => String(r.id) === String(room_id)
+      // );
+      // if (idx !== -1) {
+      //   state.chatRoomList[idx] = { ...state.chatRoomList[idx], ...patch };
+      // }
+    },
   },
   extraReducers: (builder) => {
     builder.addCase(getChatRoomList.pending, (state) => {
@@ -172,8 +209,22 @@ const chatSlice = createSlice({
       state.error.createChannelRoom = action.error.message;
     });
 
+
+    builder.addCase(getUserRoomRole.pending, (state) => {
+      state.loading.getUserRoomRole = true;
+    });
+    builder.addCase(getUserRoomRole.fulfilled, (state, action) => {
+      state.userRoomRole = action.payload.role;
+      state.loading.getUserRoomRole = false;
+    });
+    builder.addCase(getUserRoomRole.rejected, (state, action) => {
+      state.userRoomRole = null;
+      state.loading.getUserRoomRole = false;
+      state.error.getUserRoomRole = action.error.message;
+    });
+
   },
 });
 
-export const { setSocket, setStatus, addMessage, clearMessages, updateChatList  } = chatSlice.actions;
+export const { setSocket, setStatus, addMessage, clearMessages, updateChatList, patchChatRoomDetail } = chatSlice.actions;
 export default chatSlice.reducer;

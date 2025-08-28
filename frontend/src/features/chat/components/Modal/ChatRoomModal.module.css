@@ -156,3 +156,36 @@
   .groupDetails h2 { font-size: 20px; }
   .groupDetails p { font-size: 13px; }
 }
+
+.avatarWrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.changeAvatarBtn {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  background: linear-gradient(90deg, #007bff, #00c6ff);
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 0 6px rgba(0,123,255,0.6);
+  padding: 0;
+  z-index: 10;
+}
+
+.cameraIcon {
+  width: 18px;
+  height: 18px;
+  color: white;
+}
+
+.changeAvatarBtn:hover {
+  transform: scale(1.1);
+}

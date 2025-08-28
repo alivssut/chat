@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import styles from "./ChatRoomPage.module.css";
 import { useDispatch, useSelector } from "react-redux";
 import { getUser } from "../../auth/authSlice";
-import { getChatRoomMessageList, getChatRoomDetail } from "../chatSlice";
+import { getChatRoomMessageList, getChatRoomDetail, patchChatRoomDetail } from "../chatSlice";
 import ChatRoomModal from "../components/Modal/ChatRoomModal";
 import groupIMG from "../../../assets/images/group_default.png";
 import useWebSocket, { ReadyState } from "react-use-websocket";
@@ -21,6 +21,7 @@ export default function ChatRoomPage({ room_id, onBack }) {
 
   const [messages, setMessages] = useState([]);
   const [messageInput, setMessageInput] = useState("");
+
 
   // ----------------------
   // Dropdown close handler
@@ -92,26 +93,55 @@ export default function ChatRoomPage({ room_id, onBack }) {
 
   // handle incoming message
   useEffect(() => {
-    if (lastMessage !== null) {
-      try {
-        const data = JSON.parse(lastMessage.data);
-        console.log("📩 New message:", data);
-        const normalized = {
-          id: data.id ?? Date.now(),
-          text: data.text ?? data.content ?? "",
-          timestamp: data.timestamp ?? data.created_at ?? new Date().toISOString(),
-          sender: {
-            id: data.sender ?? data.user ?? null,
-            username: data.username ?? null,
-            avatar: data.avatar ?? null,
-          },
-        };
-        setMessages((prev) => [...prev, normalized]);
-      } catch (err) {
-        console.error("❌ Error parsing WS message:", err);
-      }
+    if (!lastMessage) return;
+
+    let data = null;
+    try {
+      data = JSON.parse(lastMessage.data);
+      console.log(data);
+    } catch (err) {
+      console.error("❌ Error parsing WS message:", err);
+      return;
     }
-  }, [lastMessage]);
+    
+    if (data?.event === "room_avatar_updated") {
+      console.log("room_avatar_updated")
+      dispatch(
+        patchChatRoomDetail({
+          room_id: data.room_id,
+          patch: {
+            avatar: data.avatar,
+            name: data.room_name,
+            updated_at: data.updated_at
+          },
+        })
+      );
+
+        // dispatch(updateRoomMeta({ room_id, patch: { name: data.room_name, avatar: data.avatar, updated_at: data.updated_at } }));
+        return;
+    }
+
+    const isChatMessage =
+      typeof data === "object" &&
+      (data.text || data.content || data.created_at || data.id);
+
+    if (isChatMessage) {
+      const normalized = {
+        id: data.id ?? Date.now(),
+        text: data.text ?? data.content ?? "",
+        timestamp: data.timestamp ?? data.created_at ?? new Date().toISOString(),
+        sender: {
+          id: data.sender ?? data.user ?? null,
+          username: data.username ?? null,
+          avatar: data.avatar ?? null,
+        },
+      };
+
+      if (!normalized.text) return;
+
+      setMessages((prev) => [...prev, normalized]);
+    }
+  }, [lastMessage, room_id /*, dispatch */]);
 
   // ----------------------
   // Scroll to bottom
@@ -240,6 +270,7 @@ export default function ChatRoomPage({ room_id, onBack }) {
         onClose={() => setShowModal(false)}
         chatRoom={chatRoomDetail}
         room_id={room_id}
+        user_role={chatRoomDetail?.user_role}
       />
     </div>
   );

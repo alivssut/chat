@@ -104,3 +104,21 @@ export const createChannelRoom = async (payload) => {
   const response = await axiosInstance.post("/chat/rooms/create-channel/", payload);
   return response.data;
 };
+
+export const fetchUserRoomRole = async (room_id) => {
+  const response = await axiosInstance.get(`/chat/room/${room_id}/role/`);
+  return response.data;
+};
+
+export const updateRoomAvatar = async (roomId, file) => {
+  const formData = new FormData();
+  formData.append("avatar", file);
+
+  const response = await axiosInstance.patch(`chat/rooms/${roomId}/avatar/`, formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+
+  return response.data;
+};

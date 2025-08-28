@@ -1,5 +1,5 @@
 from django.urls import path, include
-from .views.chatViews import ChatRoomListView, ChatRoomMessageListView, ChatRoomDetailView, ChatRoomMembersView, CreateGroupView, CreateChannelView
+from .views.chatViews import ChatRoomListView, ChatRoomMessageListView, ChatRoomDetailView, ChatRoomMembersView, CreateGroupView, CreateChannelView, RoomAvatarUpdateView
 
 # Custom URL patterns
 urlpatterns = [
@@ -9,4 +9,5 @@ urlpatterns = [
     path('rooms/<str:room_id>/members/', ChatRoomMembersView.as_view(), name='chat-room-detail'),
     path('rooms/', ChatRoomListView.as_view(), name='chat-room-list'),
     path('room/messages/<str:room_id>/', ChatRoomMessageListView.as_view(), name='chat-room-messages-list'),
+        path("rooms/<str:pk>/avatar/", RoomAvatarUpdateView.as_view(), name="room-avatar-update"),
 ]

@@ -110,8 +110,20 @@ class ChatConsumer(AsyncWebsocketConsumer):
     #     )
 
     async def chat_message(self, event):
-     
-        await self.send(text_data=json.dumps(event["message"]))
+        """
+        Handle incoming chat messages or room updates from channel layer.
+        """
+        
+        if "message" in event:
+            await self.send(text_data=json.dumps(event["message"]))
+            return
+
+        if "room_data" in event:
+            await self.send(text_data=json.dumps(event["room_data"]))
+            return
+
+        await self.send(text_data=json.dumps(event))
+
 
     @database_sync_to_async
     def get_chat(self):

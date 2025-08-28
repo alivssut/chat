@@ -99,3 +99,9 @@ class RoomCreateSerializer(serializers.ModelSerializer):
             )
 
         return room
+
+
+class RoomAvatarSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Room
+        fields = ["avatar"]
