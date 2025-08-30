@@ -6,7 +6,7 @@ import { getUserContacts, createChannel } from "../../chatSlice";
 import groupIMG from "../../../../assets/images/group_default.png"
 import { useNavigate } from 'react-router-dom';
 
-export default function NewGroupModal({ isOpen, onClose, allUsers = [] }) {
+export default function NewGroupModal({ isOpen, onClose }) {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
@@ -99,7 +99,7 @@ export default function NewGroupModal({ isOpen, onClose, allUsers = [] }) {
                     src={user.avatar || groupIMG}
                     alt={user.username}
                   />
-                  <span>{user.username}</span>
+                  <span>{user.display_name}</span>
                 </div>
               ))}
             </div>
