@@ -122,3 +122,44 @@ export const updateRoomAvatar = async (roomId, file) => {
 
   return response.data;
 };
+
+export const updateRoomDetails = async (roomId, { file, name, description }) => {
+  try {
+    const formData = new FormData();
+    if (file) formData.append("avatar", file);
+    if (name) formData.append("name", name);
+    if (description) formData.append("description", description);
+
+    const response = await axiosInstance.patch(
+      `/chat/rooms/${roomId}/update/`,
+      formData,
+      {
+        headers: {
+          Accept: "application/json",
+        },
+      }
+    );
+
+    return response.data;
+  } catch (error) {
+    console.error("Error updating room details:", error);
+    throw error;
+  }
+};
+
+export const fetchUserContactsForRoom = async (room_id) => {
+  const response = await axiosInstance.get(`/chat/rooms/${room_id}/contacts/`);
+  return response.data;
+};
+
+export const addUserToRoom = async ({room_id, user_id}) => {
+  try {
+    const response = await axiosInstance.post(`/chat/rooms/${room_id}/add-user/`, {
+      "user_id": user_id,
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error adding user to room:", error);
+    throw error;
+  }
+};

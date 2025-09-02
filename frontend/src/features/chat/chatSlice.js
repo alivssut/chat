@@ -1,5 +1,9 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { fetchChatRoomList, fetchChatRoomMessageList, fetchChatRoomDetail, fetchChatRoomMembers, fetchUserContacts, createChatRoom, createChannelRoom, fetchUserRoomRole, updateRoomAvatar } from './chatAPI';
+import { 
+  fetchChatRoomList, fetchChatRoomMessageList, fetchChatRoomDetail,
+   fetchChatRoomMembers, fetchUserContacts, createChatRoom,
+    createChannelRoom, fetchUserRoomRole, updateRoomAvatar,
+     updateRoomDetails, fetchUserContactsForRoom, addUserToRoom } from './chatAPI';
 
 export const getChatRoomList = createAsyncThunk("chat/rooms", async () => {
   return await fetchChatRoomList();
@@ -43,6 +47,27 @@ export const changeRoomAvatar = createAsyncThunk(
   }
 );
 
+export const changeRoomDetails = createAsyncThunk(
+  "chat/changeRoomDetails",
+  async ({ roomId, file, name, description }) => {
+    return await updateRoomDetails(roomId, { file, name, description });
+  }
+);
+
+export const getUserContactsForRoom = createAsyncThunk(
+  "chat/getUserContactsForRoom",
+  async (room_id) => {
+    return await fetchUserContactsForRoom(room_id);
+  }
+);
+
+export const addMemberToRoom = createAsyncThunk(
+  "chat/addMemberToRoom",
+  async ({ room_id, user_id }) => {
+    return await addUserToRoom({room_id, user_id});
+  }
+);
+
 const chatSlice = createSlice({
   name: "chat",
   initialState: {
@@ -55,6 +80,7 @@ const chatSlice = createSlice({
     chatRoomDetail: null,
     userRoomRole: null,
     userContacts: false,
+    userContactsForRoom: [],
     loading: {
         getChatRoomList: false,
         getChatRoomMessageList: false,
@@ -64,6 +90,9 @@ const chatSlice = createSlice({
         createRoom: false,
         createChannelRoom: false,
         getUserRoomRole: false,
+        changeRoomDetails: false,
+        getUserContactsForRoom: false,
+        addMemberToRoom: false,
     },
     error: {
         getChatRoomList: null,
@@ -74,6 +103,9 @@ const chatSlice = createSlice({
         createRoom: null,
         createChannelRoom: null,
         getUserRoomRole: null,
+        changeRoomDetails: null,
+        getUserContactsForRoom: null,
+        addMemberToRoom: null,
     },
   },
   reducers: {
@@ -91,6 +123,7 @@ const chatSlice = createSlice({
     },
     updateChatList(state, action) {
       const updatedRoom = action.payload;
+      console.log(updatedRoom)
       const index = state.chatRoomList.findIndex(room => room.id === updatedRoom.room_id);
     
       if (index !== -1) {
@@ -106,13 +139,11 @@ const chatSlice = createSlice({
       // payload: { room_id, patch: { avatar?, name?, updated_at?, ... } }
       const { room_id, patch } = action.payload || {};
       if (!room_id || !patch) return;
-      console.log("room_id: ", room_id)
       if (
         state.chatRoomDetail &&
         String(state.chatRoomDetail.id) === String(room_id)
       ) {
         state.chatRoomDetail = { ...state.chatRoomDetail, ...patch };
-        console.log(state.chatRoomDetail)
       }
 
       // const idx = state.chatRoomList.findIndex(
@@ -221,6 +252,50 @@ const chatSlice = createSlice({
       state.userRoomRole = null;
       state.loading.getUserRoomRole = false;
       state.error.getUserRoomRole = action.error.message;
+    });
+
+
+    builder.addCase(changeRoomDetails.pending, (state) => {
+      state.loading.changeRoomDetails = true;
+    });
+    builder.addCase(changeRoomDetails.fulfilled, (state, action) => {
+      state.loading.changeRoomDetails = false;
+      state.chatRoomDetail = action.payload;
+    });
+    builder.addCase(changeRoomDetails.rejected, (state, action) => {
+      state.loading.changeRoomDetails = false;
+      state.error.changeRoomDetails = action.error.message;
+    });
+
+    builder.addCase(getUserContactsForRoom.pending, (state) => {
+      state.loading.getUserContactsForRoom = true;
+    });
+    builder.addCase(getUserContactsForRoom.fulfilled, (state, action) => {
+      state.userContactsForRoom = action.payload;
+      state.loading.getUserContactsForRoom = false;
+    });
+    builder.addCase(getUserContactsForRoom.rejected, (state, action) => {
+      state.loading.getUserContactsForRoom = false;
+      state.error.getUserContactsForRoom = action.error.message;
+    });
+
+    builder.addCase(addMemberToRoom.pending, (state) => {
+      state.loading.addMemberToRoom = true;
+    });
+    builder.addCase(addMemberToRoom.fulfilled, (state, action) => {
+      state.loading.addMemberToRoom = false;
+      
+      const userId = action.payload.member.user_id;
+      const contactIdx = state.userContactsForRoom.findIndex(
+        (contact) => contact.user_id === userId
+      );
+      if (contactIdx !== -1) {
+        state.userContactsForRoom[contactIdx].is_member = true;
+      }
+    });
+    builder.addCase(addMemberToRoom.rejected, (state, action) => {
+      state.loading.addMemberToRoom = false;
+      state.error.addMemberToRoom = action.error.message;
     });
 
   },

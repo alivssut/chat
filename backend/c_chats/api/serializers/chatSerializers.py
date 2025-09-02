@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from c_chats.models import Room, Message, RoomMember
-from c_accounts.models import User, UserProfile
+from c_accounts.models import User, UserProfile, Contact
 
 class RoomDetailSerializer(serializers.ModelSerializer):
     user_role = serializers.SerializerMethodField()
@@ -26,15 +26,15 @@ class RoomListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Room
-        fields = '__all__'
+        fields = ('id', 'room_type', 'name', 'last_message', 'avatar', 'created_at')
 
     def get_last_message(self, obj):
         last_msg = obj.messages.order_by("-created_at").first()
         if last_msg:
             return {
-                "id": last_msg.id,
+                "id": str(last_msg.id),  # uuid → str
                 "text": last_msg.content,
-                "created_at": last_msg.created_at,
+                "created_at": last_msg.created_at.isoformat() if last_msg.created_at else None,
                 "sender": last_msg.user.username
             }
         return None
@@ -105,3 +105,26 @@ class RoomAvatarSerializer(serializers.ModelSerializer):
     class Meta:
         model = Room
         fields = ["avatar"]
+        
+class ContactSerializer(serializers.ModelSerializer):
+    is_member = serializers.SerializerMethodField()
+    avatar = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Contact
+        fields = ['id', 'contact_user', 'display_name', 'avatar', 'is_member']
+
+    def get_is_member(self, obj):
+        room_id = self.context.get('room_id')
+        if not room_id:
+            return False
+        return RoomMember.objects.filter(
+            room_id=room_id,
+            user=obj.contact_user,
+            is_deleted=False
+        ).exists()
+
+    def get_avatar(self, obj):
+        if hasattr(obj.contact_user, 'userprofile') and obj.contact_user.userprofile.avatar:
+            return obj.contact_user.userprofile.avatar.url
+        return "/default-avatar.png"

@@ -1,4 +1,5 @@
 from rest_framework.views import APIView
+from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -6,11 +7,13 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework import generics
 from rest_framework import viewsets
 from c_chats.models import Room, Message, RoomMember
-from c_chats.api.serializers.chatSerializers import RoomListSerializer, RoomDetailSerializer, MessageSerializer, ChatRoomMemberSerializer, RoomCreateSerializer, RoomAvatarSerializer
+from c_chats.api.serializers.chatSerializers import RoomListSerializer, RoomDetailSerializer, MessageSerializer, ChatRoomMemberSerializer, RoomCreateSerializer, RoomAvatarSerializer, ContactSerializer
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from uuid import UUID
 from django.utils import timezone
+from c_accounts.models import Contact, User
+
 
 def convert_uuid_to_str(obj):
     if isinstance(obj, dict):
@@ -53,8 +56,84 @@ class ChatRoomDetailView(APIView):
         room = Room.objects.get(id=room_id, is_active=True)
         serializer = RoomDetailSerializer(room, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
 
+class ChatRoomDetailUpdateView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get_room(self, room_id, user):
+        try:
+            room = Room.objects.get(id=room_id, members=user, is_active=True)
+            return room
+        except Room.DoesNotExist:
+            return None
+
+    def get(self, request, room_id):
+        room = self.get_room(room_id, request.user)
+        if not room:
+            return Response({"detail": "Room not found or access denied."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = RoomDetailSerializer(room, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def patch(self, request, room_id):
+        room = self.get_room(room_id, request.user)
+        if not room:
+            return Response({"detail": "Room not found or access denied."}, status=status.HTTP_404_NOT_FOUND)
+
+        if not room.room_members.filter(user=request.user, role="admin").exists():
+            return Response({"detail": "Permission denied"}, status=status.HTTP_403_FORBIDDEN)
+
+        data = request.data
+        updated = False
+
+        if "name" in data:
+            room.name = data["name"]
+            updated = True
+        if "description" in data:
+            room.description = data["description"]
+            updated = True
+        if "avatar" in data:
+            room.avatar = data["avatar"]
+            updated = True
+
+        if updated:
+            room.save()
+
+            avatar_url = room.avatar.url if room.avatar else None
+            updated_at = timezone.now().isoformat()
+            payload = {
+                "event": "room_updated",
+                "room_id": str(room.id),
+                "name": room.name,
+                "avatar": avatar_url,
+                "description": room.description,
+                "updated_at": updated_at,
+                "updated_by": str(request.user.pk),
+            }
+
+            channel_layer = get_channel_layer()
+            participant_ids = list(room.members.values_list("id", flat=True))
+            for uid in participant_ids:
+                async_to_sync(channel_layer.group_send)(
+                    f"user_chatlist_{uid}",
+                    {
+                        "type": "chat_list_update",
+                        "room_data": payload
+                    }
+                )
+            async_to_sync(channel_layer.group_send)(
+                f"chat_{room.id}",
+                {
+                    "type": "chat_message",
+                    "room_data": payload
+                }
+            )
+
+        serializer = RoomDetailSerializer(room, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    
 class ChatRoomMembersView(generics.ListAPIView):
     serializer_class = ChatRoomMemberSerializer
     authentication_classes = [JWTAuthentication]
@@ -183,10 +262,8 @@ class RoomAvatarUpdateView(APIView):
         base_payload = {
             "event": "room_avatar_updated",
             "room_id": room.id,
-            "room_name": getattr(room, "name", None),
             "avatar": avatar_url,
             "updated_at": updated_at,
-            "updated_by": str(request.user.pk),
         }
 
         channel_layer = get_channel_layer()
@@ -213,3 +290,65 @@ class RoomAvatarUpdateView(APIView):
                 print("Failed to broadcast room avatar update: %s", e)
 
         return Response(serializer.data, status=status.HTTP_200_OK)
+    
+
+class UserContactsForRoomView(ListAPIView):
+    serializer_class = ContactSerializer
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+
+    def get_queryset(self):
+        return Contact.objects.filter(owner=self.request.user).select_related(
+            'contact_user', 'contact_user__userprofile'
+        )
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['room_id'] = self.kwargs.get('room_id')
+        return context
+    
+class AddUserToRoomView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, room_id):
+        user_id = request.data.get("user_id")
+        if not user_id:
+            return Response({"error": "user_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            room = Room.objects.get(id=room_id)
+        except Room.DoesNotExist:
+            return Response({"error": "Room not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if RoomMember.objects.filter(room=room, user=user).exists():
+            return Response({"error": "User is already a member of this room."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        room_data = RoomListSerializer(room, context={"request": request}).data
+        room_data = convert_uuid_to_str(room_data)
+        
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f"user_chatlist_{str(user.id)}",
+            {
+                "type": "chat_list_update",
+                "room_data": room_data
+            }
+        )
+
+        member = RoomMember.objects.create(room=room, user=user, role="member")
+        print()
+        return Response({
+            "success": True,
+            "member": {
+                "id": str(member.id),
+                "user_id": str(user.id),
+                "username": user.username,
+                "avatar": request.build_absolute_uri(user.userprofile.avatar.url) if getattr(user.userprofile, "avatar", None) else None,
+                "role": member.role
+            }
+        }, status=status.HTTP_201_CREATED)
