@@ -8,7 +8,7 @@ Real-time communication is powered by **Django Channels**, **WebSockets**, and *
 ## 📸 Screenshots  
 
 - Chat list and chat room  
-![Login Screenshot](./images/1.png)  
+![1](./images/1.PNG)  
 
 ---
 
